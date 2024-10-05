@@ -1,4 +1,4 @@
-# Retinal-Disease-Classification-using-OCID-imagesation
+# Retinal-Disease-Classification-using-OCID-images
 
 This repository contains code for training and testing an image classification model using the OCTID dataset. The model is implemented in TensorFlow/Keras and can classify images into different categories based on their content.
 
