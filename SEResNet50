@@ -125,43 +125,6 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
-from sklearn.metrics import classification_report, confusion_matrix
-import numpy as np
-import tensorflow as tf
-
-
-val_generator.reset()
-predictions = model.predict(val_generator, steps=len(val_generator), verbose=1)
-y_pred = np.argmax(predictions, axis=1)
-
-
-y_true = val_generator.classes
-
-
-conf_matrix = confusion_matrix(y_true, y_pred)
-tn, fp, fn, tp = conf_matrix.ravel()
-
-
-def calculate_metrics(conf_matrix):
-    tn, fp, fn, tp = conf_matrix.ravel()
-    sensitivity = tp / (tp + fn)
-    specificity = tn / (tn + fp)
-    precision = tp / (tp + fp)
-    recall = sensitivity
-    f1_score = 2 * (precision * recall) / (precision + recall)
-    return sensitivity, specificity, precision, recall, f1_score
-
-sensitivity, specificity, precision, recall, f1_score = calculate_metrics(conf_matrix)
-
-print(f'Sensitivity: {sensitivity:.2f}')
-print(f'Specificity: {specificity:.2f}')
-print(f'Precision: {precision:.2f}')
-print(f'Recall: {recall:.2f}')
-print(f'F1 Score: {f1_score:.2f}')
-
-
-print("Classification Report:")
-print(classification_report(y_true, y_pred, target_names=val_generator.class_indices.keys()))
 
 from sklearn.metrics import classification_report, confusion_matrix
 import numpy as np
