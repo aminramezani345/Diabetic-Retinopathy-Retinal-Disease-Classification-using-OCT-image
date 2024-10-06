@@ -1,0 +1,128 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torchvision import models
+
+
+class SpatialAttention(nn.Module):
+    def __init__(self):
+        super(SpatialAttention, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels=2, out_channels=1, kernel_size=7, padding=3)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        avg_out = torch.mean(x, dim=1, keepdim=True)  
+        max_out, _ = torch.max(x, dim=1, keepdim=True) 
+        attn_map = torch.cat([avg_out, max_out], dim=1)  
+        attn_map = self.conv1(attn_map)
+        return x * self.sigmoid(attn_map)  
+
+
+class AttentionCNN(nn.Module):
+    def __init__(self, num_classes=5):
+        super(AttentionCNN, self).__init__()
+      
+        self.base_model = models.resnet18(pretrained=True)
+        self.base_model.fc = nn.Identity()  
+
+   
+        self.spatial_attn = SpatialAttention()
+
+    
+        self.fc = nn.Linear(512, num_classes)
+
+    def forward(self, x):
+        # Pass through the base CNN layers
+        features = self.base_model(x)
+
+        # Apply the attention mechanism
+        attn_output = self.spatial_attn(features)
+
+        # Global Average Pooling
+        attn_output = F.adaptive_avg_pool2d(attn_output, (1, 1))
+        attn_output = torch.flatten(attn_output, 1)
+
+        # Final classification layer
+        output = self.fc(attn_output)
+        return output
+
+
+model = AttentionCNN(num_classes=5)
+
+
+train_dir = '/Users/chaitanyakakade/Downloads/colored_images'
+val_dir = '/Users/chaitanyakakade/Downloads/colored_images_split'
+
+
+from torchvision import datasets, transforms
+
+train_transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+])
+
+val_transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+])
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+train_dataset = datasets.ImageFolder(root=train_dir, transform=train_transform)
+val_dataset = datasets.ImageFolder(root=val_dir, transform=val_transform)
+
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
+val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=32, shuffle=False)
+
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model.to(device)
+
+
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+criterion = nn.CrossEntropyLoss()
+
+
+def train(model, train_loader, val_loader, optimizer, criterion, num_epochs=10):
+    model.train()
+    for epoch in range(num_epochs):
+        running_loss = 0.0
+        correct = 0
+        total = 0
+        for images, labels in train_loader:
+            images, labels = images.to(device), labels.to(device)
+
+            optimizer.zero_grad()
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item()
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+        train_accuracy = 100 * correct / total
+        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/total:.4f}, Train Accuracy: {train_accuracy:.2f}%')
+
+        validate(model, val_loader)
+
+# Validation
+def validate(model, val_loader):
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels in val_loader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    val_accuracy = 100 * correct / total
+    print(f'Validation Accuracy: {val_accuracy:.2f}%')
+
+
+train(model, train_loader, val_loader, optimizer, criterion, num_epochs=10)
