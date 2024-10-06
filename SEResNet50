@@ -1,0 +1,245 @@
+import tensorflow as tf
+from tensorflow.keras.layers import Layer, GlobalAveragePooling2D, Dense, Reshape, Multiply, Conv2D
+from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.models import Model
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+class SEBlock(Layer):
+    def __init__(self, reduction=16, **kwargs):
+        super(SEBlock, self).__init__(**kwargs)
+        self.reduction = reduction
+
+    def build(self, input_shape):
+        self.filters = input_shape[-1]
+        self.pool = GlobalAveragePooling2D()
+        self.fc1 = Dense(self.filters // self.reduction, activation='relu', use_bias=False)
+        self.fc2 = Dense(self.filters, activation='sigmoid', use_bias=False)
+
+    def call(self, inputs):
+        x = self.pool(inputs)
+        x = self.fc1(x)
+        x = self.fc2(x)
+        x = Reshape((1, 1, self.filters))(x)
+        return Multiply()([inputs, x])
+def create_se_resnet50(input_shape, num_classes):
+    base_model = tf.keras.applications.ResNet50(weights='imagenet', include_top=False, input_shape=input_shape)
+
+    x = base_model.output
+    x = SEBlock(reduction=16)(x)
+    x = tf.keras.layers.Flatten()(x)
+    x = tf.keras.layers.Dense(64, activation='relu')(x)
+    
+    x = tf.keras.layers.Dropout(0.5)(x)
+    output = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
+
+    model = Model(inputs=base_model.input, outputs=output)
+
+    return model
+def prepare_data(train_dir, val_dir, batch_size=32, img_size=(224, 224)):
+    train_datagen = ImageDataGenerator(
+        rescale=1./255,
+        rotation_range=20, 
+        width_shift_range=0.3, 
+        height_shift_range=0.3,  
+        shear_range=0.3, 
+        zoom_range=0.3,  
+        horizontal_flip=True,
+        fill_mode='nearest'
+    )
+    
+    val_datagen = ImageDataGenerator(rescale=1./255)
+
+    train_generator = train_datagen.flow_from_directory(
+        train_dir,
+        target_size=img_size,
+        batch_size=batch_size,
+        class_mode='categorical'
+    )
+
+    val_generator = val_datagen.flow_from_directory(
+        val_dir,
+        target_size=img_size,
+        batch_size=batch_size,
+        class_mode='categorical'
+    )
+
+    return train_generator, val_generator
+ 
+input_shape = (224, 224, 3)
+num_classes = 5  
+
+model = create_se_resnet50(input_shape, num_classes)
+
+model.compile(optimizer='adam',
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
+
+train_dir = '/Users/chaitanyakakade/Downloads/colored_images'
+val_dir = '/Users/chaitanyakakade/Downloads/colored_images_split'
+
+from tensorflow.keras.callbacks import ReduceLROnPlateau
+
+lr_scheduler = ReduceLROnPlateau(
+    monitor='val_loss',
+    factor=0.1,
+    patience=3,
+    verbose=1
+)
+
+history = model.fit(
+    train_generator,
+    epochs=20,
+    validation_data=val_generator,
+    callbacks=[lr_scheduler]
+)
+
+
+
+val_loss, val_accuracy = model.evaluate(val_generator)
+print(f'Validation Accuracy: {val_accuracy:.2f}%')
+
+import matplotlib.pyplot as plt
+
+# Assuming `history` is the History object returned from `model.fit()`
+
+# Plot accuracy
+plt.figure(figsize=(12, 6))
+
+plt.subplot(1, 2, 1)
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Val Accuracy')
+plt.title('Accuracy Curve')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+
+# Plot loss
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'], label='Train Loss')
+plt.plot(history.history['val_loss'], label='Val Loss')
+plt.title('Loss Curve')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+
+from sklearn.metrics import classification_report, confusion_matrix
+import numpy as np
+import tensorflow as tf
+
+
+val_generator.reset()
+predictions = model.predict(val_generator, steps=len(val_generator), verbose=1)
+y_pred = np.argmax(predictions, axis=1)
+
+
+y_true = val_generator.classes
+
+
+conf_matrix = confusion_matrix(y_true, y_pred)
+tn, fp, fn, tp = conf_matrix.ravel()
+
+
+def calculate_metrics(conf_matrix):
+    tn, fp, fn, tp = conf_matrix.ravel()
+    sensitivity = tp / (tp + fn)
+    specificity = tn / (tn + fp)
+    precision = tp / (tp + fp)
+    recall = sensitivity
+    f1_score = 2 * (precision * recall) / (precision + recall)
+    return sensitivity, specificity, precision, recall, f1_score
+
+sensitivity, specificity, precision, recall, f1_score = calculate_metrics(conf_matrix)
+
+print(f'Sensitivity: {sensitivity:.2f}')
+print(f'Specificity: {specificity:.2f}')
+print(f'Precision: {precision:.2f}')
+print(f'Recall: {recall:.2f}')
+print(f'F1 Score: {f1_score:.2f}')
+
+
+print("Classification Report:")
+print(classification_report(y_true, y_pred, target_names=val_generator.class_indices.keys()))
+
+from sklearn.metrics import classification_report, confusion_matrix
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+
+
+val_generator.reset()
+predictions = model.predict(val_generator, steps=len(val_generator), verbose=1)
+y_pred = np.argmax(predictions, axis=1)
+
+
+y_true = val_generator.classes
+
+
+conf_matrix = confusion_matrix(y_true, y_pred)
+
+
+print("Confusion Matrix:")
+print(conf_matrix)
+
+
+print("Classification Report:")
+print(classification_report(y_true, y_pred, target_names=val_generator.class_indices.keys()))
+
+
+def calculate_class_metrics(conf_matrix):
+    num_classes = conf_matrix.shape[0]
+    metrics = {}
+    
+    for i in range(num_classes):
+        tp = conf_matrix[i, i]
+        fn = conf_matrix[i, :].sum() - tp
+        fp = conf_matrix[:, i].sum() - tp
+        tn = conf_matrix.sum() - (tp + fn + fp)
+        
+        sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
+        specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+        recall = sensitivity
+        f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+        
+        metrics[f'Class {i}'] = {
+            'Sensitivity': sensitivity,
+            'Specificity': specificity,
+            'Precision': precision,
+            'Recall': recall,
+            'F1 Score': f1_score
+        }
+    
+    return metrics
+
+
+class_metrics = calculate_class_metrics(conf_matrix)
+for cls, metrics in class_metrics.items():
+    print(f"\n{cls} Metrics:")
+    for metric, value in metrics.items():
+        print(f"{metric}: {value:.2f}")
+
+
+plt.figure(figsize=(12, 6))
+
+plt.subplot(1, 2, 1)
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Val Accuracy')
+plt.title('Accuracy Curve')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'], label='Train Loss')
+plt.plot(history.history['val_loss'], label='Val Loss')
+plt.title('Loss Curve')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+
