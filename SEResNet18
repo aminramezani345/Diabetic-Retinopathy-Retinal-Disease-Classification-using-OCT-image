@@ -1,0 +1,126 @@
+import torchvision.models as models
+import torch
+import torch.nn as nn
+
+class SEBlock(nn.Module):
+    def __init__(self, in_channels, reduction=16):
+        super(SEBlock, self).__init__()
+        self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.fc1 = nn.Linear(in_channels, in_channels // reduction)
+        self.fc2 = nn.Linear(in_channels // reduction, in_channels)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        batch_size, c, _, _ = x.size()
+        se = self.global_avg_pool(x).view(batch_size, c)
+        se = self.fc1(se)
+        se = nn.ReLU()(se)
+        se = self.fc2(se)
+        se = self.sigmoid(se).view(batch_size, c, 1, 1)
+        return x * se
+
+class SEResNet18(nn.Module):
+    def __init__(self, num_classes):
+        super(SEResNet18, self).__init__()
+   
+        self.resnet18 = models.resnet18(pretrained=True)
+        self.resnet18.fc = nn.Identity()  
+        
+      
+        self.se_block1 = SEBlock(in_channels=64)  
+        self.se_block2 = SEBlock(in_channels=128)
+        self.se_block3 = SEBlock(in_channels=256)
+        self.se_block4 = SEBlock(in_channels=512)
+
+        
+        self.fc = nn.Linear(512, num_classes)
+
+    def forward(self, x):
+        # Pass through ResNet layers
+        x = self.resnet18.conv1(x)
+        x = self.resnet18.bn1(x)
+        x = self.resnet18.relu(x)
+        x = self.resnet18.maxpool(x)
+
+        x = self.resnet18.layer1(x)
+        x = self.se_block1(x)
+        x = self.resnet18.layer2(x)
+        x = self.se_block2(x)
+        x = self.resnet18.layer3(x)
+        x = self.se_block3(x)
+        x = self.resnet18.layer4(x)
+        x = self.se_block4(x)
+
+        x = self.resnet18.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+        return x
+import torch
+import torch.nn as nn
+import torchvision.transforms as transforms
+from torchvision import datasets
+from torch.utils.data import DataLoader
+
+train_transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(), 
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]) 
+])
+
+val_transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+
+
+train_dir = '/Users/chaitanyakakade/Downloads/colored_images'
+val_dir = '/Users/chaitanyakakade/Downloads/colored_images_split'
+train_dataset = datasets.ImageFolder(root=train_dir, transform=train_transform)
+val_dataset = datasets.ImageFolder(root=val_dir, transform=val_transform)
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+
+model = SEResNet18(num_classes=len(train_dataset.classes))
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model.to(device)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+criterion = nn.CrossEntropyLoss()
+
+def train(model, train_loader, val_loader, optimizer, criterion, num_epochs=10):
+    model.train()
+    for epoch in range(num_epochs):
+        running_loss = 0.0
+        correct = 0
+        total = 0
+        for images, labels in train_loader:
+            images, labels = images.to(device), labels.to(device)
+            optimizer.zero_grad()
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            running_loss += loss.item()
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+        train_accuracy = 100 * correct / total
+        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/total:.4f}, Train Accuracy: {train_accuracy:.2f}%')
+        validate(model, val_loader)
+
+def validate(model, val_loader):
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels in val_loader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    val_accuracy = 100 * correct / total
+    print(f'Validation Accuracy: {val_accuracy:.2f}%')
+
+train(model, train_loader, val_loader, optimizer, criterion, num_epochs=10)
