@@ -1,6 +1,17 @@
 # Retinal-Disease-Classification-using-OCID-images
 
-This repository contains code for training and testing an image classification model using the OCTID dataset. The model is implemented in TensorFlow/Keras and can classify images into different categories based on their content.
+This repository contains an implementation of a custom Convolutional Neural Network (CNN) with an integrated attention mechanism using a Squeeze-and-Excitation (SE) block, designed for image classification tasks. The model leverages data augmentation techniques and various regularization methods to improve generalization. Additionally, the training process incorporates dynamic learning rate scheduling for optimal performance.
+
+The core functionality of this model is inspired by my work on detecting medical conditions from retinal images, and this approach can be extended to various other image classification tasks in the medical and non-medical domains.
+
+This implementation is particularly suited for detecting the severity of diabetic retinopathy, inspired by the use of attention-based CNN architectures and Vision Transformers for retinal image analysis, as demonstrated in Chaitanya Kakade's work.
+
+Citations
+If you find this repository helpful or use it in your work, please cite the following repository:
+
+Chaitanya Kakade, "Optimal Detection of Diabetic Retinopathy Severity Using Attention-Based CNN and Vision Transformers," GitHub Repository, 
+[link to repository](https://github.com/ChaitanyaK77/Optimal-Detection-of-Diabetic-Retinopathy-Severity-Using-Attention-Based-CNN-and-Vision-Transformers/tree/main).
+
 
 ## Table of Contents
 - [Overview](#overview)
