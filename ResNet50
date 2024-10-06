@@ -1,0 +1,121 @@
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras import layers, models
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from sklearn.utils import class_weight
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+import shutil
+
+import os
+import shutil
+from sklearn.model_selection import train_test_split
+
+def create_split_dirs(base_dir, split_dir, split_ratio=0.2):
+    classes = os.listdir(base_dir)
+    for cls in classes:
+        cls_path = os.path.join(base_dir, cls)
+        images = os.listdir(cls_path)
+        train, val = train_test_split(images, test_size=split_ratio, random_state=42)
+        
+     
+        val_cls_dir = os.path.join(split_dir, 'val', cls)
+        os.makedirs(val_cls_dir, exist_ok=True)
+        
+        for img in val:
+            shutil.move(os.path.join(cls_path, img), os.path.join(val_cls_dir, img))
+
+
+create_split_dirs('/Users/chaitanyakakade/Downloads/colored_images', '/Users/chaitanyakakade/Downloads/colored_images_split', split_ratio=0.2)
+
+train_dir = '/Users/chaitanyakakade/Downloads/colored_images'
+val_dir = '/Users/chaitanyakakade/Downloads/colored_images_split'
+
+
+train_datagen = ImageDataGenerator(
+    rescale=1./255,
+    rotation_range=10,
+    zoom_range=0.15,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    shear_range=0.15,
+    horizontal_flip=False,
+    fill_mode="nearest"
+)
+
+
+val_datagen = ImageDataGenerator(rescale=1./255)
+
+
+train_generator = train_datagen.flow_from_directory(
+    train_dir,
+    target_size=(224, 224),
+    batch_size=32,
+    class_mode='categorical'
+)
+
+validation_generator = val_datagen.flow_from_directory(
+    val_dir,
+    target_size=(224, 224),
+    batch_size=32,
+    class_mode='categorical'
+)
+
+from collections import Counter
+
+train_labels = []
+for cls in os.listdir(train_dir):
+    cls_path = os.path.join(train_dir, cls)
+    train_labels += [cls] * len(os.listdir(cls_path))  # Keep cls as a string
+
+counter = Counter(train_labels)
+total = sum(counter.values())
+
+
+class_weights = {cls: total / (len(counter) * count) for cls, count in counter.items()}
+
+print("Class Weights:", class_weights)
+
+import tensorflow as tf
+from tensorflow.keras.applications.resnet50 import ResNet50
+
+base_model = ResNet50(weights='/Users/chaitanyakakade/Downloads/resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5', include_top=False, input_shape=(224, 224, 3))
+
+base_model.trainable = False
+
+
+model = models.Sequential([
+    base_model,
+    layers.GlobalAveragePooling2D(),
+    layers.Dense(512, activation='relu'),
+    layers.Dropout(0.5),
+    layers.Dense(5, activation='softmax')  # 5 classes
+])
+
+model.compile(optimizer='adam',
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
+
+model.summary()
+
+early_stop = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=1e-6)
+
+class_indices = train_generator.class_indices
+print(class_indices)
+
+class_weight = {'Mild': 1.9838983050847459, 'Moderate': 0.7327073552425665, 'Proliferate_DR': 2.4904255319148936, 'Severe': 3.8065040650406505, 'No_DR': 0.4053679653679654}
+
+
+class_weight_mapped = {class_indices[label]: weight for label, weight in class_weight.items()}
+
+history = model.fit(
+    train_generator,
+    epochs=100,
+    validation_data=validation_generator,
+    class_weight=class_weight_mapped,
+    callbacks=[reduce_lr]
+)
+
+
