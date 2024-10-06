@@ -1,15 +1,29 @@
 # Retinal-Disease-Classification-using-OCID-images
 
-This repository contains an implementation of a custom Convolutional Neural Network (CNN) with an integrated attention mechanism using a Squeeze-and-Excitation (SE) block, designed for image classification tasks. The model leverages data augmentation techniques and various regularization methods to improve generalization. Additionally, the training process incorporates dynamic learning rate scheduling for optimal performance.
+Introduction
+This repository showcases a collection of custom deep learning models, specifically designed for image classification tasks, with a focus on medical image analysis. The models are optimized for tasks such as the detection and classification of retinal images and other medical imaging tasks.
 
-The core functionality of this model is inspired by my work on detecting medical conditions from retinal images, and this approach can be extended to various other image classification tasks in the medical and non-medical domains.
+Key Models Developed:
+AdvancedCNN – A high-performance Convolutional Neural Network tailored for feature-rich image datasets, providing improved accuracy and generalization.
+CustomCNN – A flexible CNN architecture designed from scratch to experiment with different layers and regularization techniques for various image processing tasks.
+ResNet18 and ResNet50 – Implementations of the popular Residual Networks, which add skip connections to avoid vanishing gradient problems in deep networks.
+SE-ResNet18 and SE-ResNet50 – Enhanced versions of ResNet architectures integrated with Squeeze-and-Excitation (SE) blocks to boost feature recalibration and attention mechanisms.
+SE-CustomCNN – A custom CNN augmented with Squeeze-and-Excitation blocks to improve attention on important image features.
+SpatialAttentionCNN – A CNN model incorporating spatial attention mechanisms to enhance the focus on key spatial regions of the input images.
+ViT-base – Vision Transformer (ViT) implementation that leverages self-attention mechanisms for improved image classification performance.
+OCTID dataset – A dataset for Optical Coherence Tomography (OCT) image analysis, aimed at advancing research in retinal image classification.
+This repository provides a robust pipeline for training these models with medical image datasets and evaluating their performance. The architectures focus on integrating attention mechanisms and regularization techniques to boost accuracy in detecting conditions such as diabetic retinopathy, glaucoma, and other vision-related diseases.
 
-This implementation is particularly suited for detecting the severity of diabetic retinopathy, inspired by the use of attention-based CNN architectures and Vision Transformers for retinal image analysis, as demonstrated in Chaitanya Kakade's work.
+How to Use:
+Clone the repository.
+Prepare the dataset (or use the OCTID dataset provided in the repository).
+Select the desired model architecture and modify training parameters as needed.
+Train the model using the dataset.
+Evaluate the model's performance using metrics such as accuracy, precision, recall, and more.
+Citation
+If you find this repository useful or use it in your own research, please give credit by citing:
 
-Citations
-If you find this repository helpful or use it in your work, please cite the following repository:
-
-Chaitanya Kakade, "Optimal Detection of Diabetic Retinopathy Severity Using Attention-Based CNN and Vision Transformers," GitHub Repository, 
+Chaitanya Kakade, "Optimal Detection of Diabetic Retinopathy Severity Using Attention-Based CNN and Vision Transformers," GitHub Repository: 
 [link to repository](https://github.com/ChaitanyaK77/Optimal-Detection-of-Diabetic-Retinopathy-Severity-Using-Attention-Based-CNN-and-Vision-Transformers/tree/main).
 
 
