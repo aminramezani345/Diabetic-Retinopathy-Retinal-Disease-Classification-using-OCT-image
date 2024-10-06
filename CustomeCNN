@@ -1,0 +1,68 @@
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+
+def create_custom_cnn(input_shape, num_classes):
+    model = Sequential()
+
+
+    model.add(Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=input_shape))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    model.add(Conv2D(64, kernel_size=(3, 3), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    model.add(Conv2D(128, kernel_size=(3, 3), activation='relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+
+    model.add(Flatten())
+
+    model.add(Dense(128, activation='relu'))
+    model.add(Dropout(0.5))  # Dropout to reduce overfitting
+    model.add(Dense(64, activation='relu'))
+
+    model.add(Dense(num_classes, activation='softmax'))
+
+    model.compile(optimizer=Adam(learning_rate=0.001),
+                  loss='categorical_crossentropy',
+                  metrics=['accuracy'])
+
+    return model
+
+input_shape = (224, 224, 3)  
+num_classes = 5 
+
+model = create_custom_cnn(input_shape, num_classes)
+
+history = model.fit(
+    train_generator,
+    epochs=50,
+    validation_data=validation_generator,
+    class_weight=class_weight_mapped, 
+)
+
+val_loss, val_acc = model.evaluate(validation_generator)
+print(f"Validation Loss: {val_loss}, Validation Accuracy: {val_acc}")
+
+import matplotlib.pyplot as plt
+
+
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Model Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend(loc='lower right')
+plt.show()
+
+
+plt.plot(history.history['loss'], label='Train Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.title('Model Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend(loc='upper right')
+plt.show()
+
